@@ -1,0 +1,48 @@
+module datapath(
+  input clk,			// system clock
+  input [15:0] a2d,		// Result from A2D conversionTemp
+  input [15:0] coeff,		// calibration coefficient from NV_MEM
+  input selA2D,			// selects A2D vs Temp on "A" side of datapath
+  input selCoeff,		// selects coeff vs Temp on "B" side of datapath
+  input selMult,		// selects Mult vs Add to drive dst
+  input enTmp,			// enable write to Temp register
+  output [15:0] dst		// the result of datapath computation
+);
+
+  ////////////////////////////////////////////////////////
+  // Declare any needed internal signals as type logic //
+  //////////////////////////////////////////////////////
+  logic [15:0] Temp16;
+  logic [15:0] satAddMux1;
+  logic [15:0] satAddMux2;
+  logic [15:0] satAddOutput;
+  logic [15:0] signedMultOutput;
+  
+  
+  /////////////////////////////////////////////////
+  // Instantiate en_reg16 to form Temp register //
+  ///////////////////////////////////////////////
+  en_reg16 ien_reg161[15:0](.clk(clk), .EN(enTmp) , .D(dst), .Q(Temp16));
+  
+  //////////////////////////////////////////////
+  // Infer selection muxes for satAdd inputs //
+  ////////////////////////////////////////////
+  assign satAddMux1 = selA2D? a2d : Temp16 ;
+  assign satAddMux2 = selCoeff? coeff : Temp16 ;
+  
+  /////////////////////////
+  // Instantiate satAdd //
+  ///////////////////////
+  satAdd satAdd1(.A(satAddMux1), .B(satAddMux2), .satSum(satAddOutput));
+  
+  //////////////////////////
+  // Instantiate satMult //
+  ////////////////////////
+  satMult satmult1(.coeff(coeff), .Temp(Temp16), .satProd(signedMultOutput));
+  
+  ///////////////////////////////////////////
+  // Infer mux to select from Add vs Mult //
+  /////////////////////////////////////////
+  assign dst = selMult? signedMultOutput : satAddOutput;
+  
+endmodule

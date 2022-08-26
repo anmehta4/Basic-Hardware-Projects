@@ -1,0 +1,126 @@
+module microwave_SM(clk,rst_n,press,open,tmr_zr,set30,set4,inc30,
+                    dec,on,beep);
+
+    /////////////////////////////////////////
+	// Author1:  <fill in your name here>
+	// Author2:  <If worked as team of 2, 2nd name here>
+	/////////////////////////////////////////
+	input clk;			// 50MHz clock
+	input rst_n;		// active low asynch reset
+	input press;		// Add30 button pressed
+	input open;			// door is open
+	input tmr_zr;		// timer has reached zero
+	output logic set4,set30;	// set timer to 4 & 30 seconds respectively
+	output logic inc30;		// increments timer by 30 seconds.
+	output logic dec;			// timer decrements if asserted
+	output logic on;			// Turns magnetron on
+	output logic beep;		// beeper beeps while asserted.
+
+	typedef enum reg[2:0] {OFF=3'b001,ON=3'b010, BEEP=3'b100} state_t;
+	
+    ////////////////////////////////
+    // Declare state & nxt_state //	
+	//////////////////////////////
+	state_t nxt_state;
+	logic [2:0] state;
+	
+    //////////////////////////////
+	// Instantiate state flops //
+	////////////////////////////
+	state3_reg iST(.clk(clk),.rst_n(rst_n),.nxt_state(nxt_state),.state(state));
+	
+	always_comb begin
+		/////////////////////////////////////////
+		// Default all SM outputs & nxt_state //
+		///////////////////////////////////////
+		///
+          //default all the outputs of your SM, we do nxt_state for you below
+		///
+		set4 = 1'b0;
+		set30 = 1'b0;
+		inc30 = 1'b0;
+		dec = 1'b0;
+		on = 1'b0;
+		beep = 1'b0;
+		nxt_state = state_t'(state);
+		
+		//// flesh out the state transition logic and output logic
+		case (state)
+		  OFF: begin
+			if(~open & press) begin
+				nxt_state = ON;
+				inc30 = 1'b1;
+				on = 1'b1;
+			end else if(open & press)begin
+				nxt_state = OFF;
+				inc30 = 1'b1;
+			end else if(~open & ~tmr_zr) begin
+				nxt_state = ON;
+				on = 1'b1;
+			end else begin
+				nxt_state = OFF;
+			end
+		  end
+
+		  ON : begin
+			if(open & ~press) begin
+				nxt_state = OFF;
+			end else if(~open & press) begin
+				nxt_state = ON;
+				inc30 = 1'b1;
+				on = 1'b1;
+			end else if(open & press)begin
+				nxt_state = OFF;
+				inc30 = 1'b1;
+			end else if(tmr_zr) begin
+				nxt_state = BEEP;
+				set4= 1'b1;
+				beep = 1'b1;
+			end else begin
+				nxt_state = ON;
+				dec = 1'b1;
+				on = 1'b1;
+			end
+			
+		  end
+		  default : begin		// this serves as BEEP state
+			if(press & ~open) begin
+				set30 = 1'b1;
+				on = 1'b1;
+				nxt_state = ON;
+			end else if(press & open) begin 
+				set30 = 1'b1;
+				nxt_state = OFF;
+			end else if(~press & open) begin
+				dec = 1'b1;
+				nxt_state = OFF;
+			end else if(tmr_zr) begin
+				nxt_state = OFF;
+			end else begin	
+				nxt_state = BEEP;
+				dec = 1'b1;
+				beep = 1'b1;
+			end 
+
+		  end
+		endcase
+	end
+		
+endmodule	
+
+///////////////////////////////////////////////////////////////
+// state3_reg defined below...do not modify code below here //
+/////////////////////////////////////////////////////////////
+module state3_reg(clk,rst_n,nxt_state,state);
+
+  input clk,rst_n;
+  input [2:0] nxt_state;
+  output reg [2:0] state;
+  
+  always_ff @(posedge clk, negedge rst_n)
+    if (!rst_n)
+      state <= 3'b001;
+    else
+      state <= nxt_state;
+	
+endmodule

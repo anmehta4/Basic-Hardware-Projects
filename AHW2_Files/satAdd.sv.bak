@@ -1,0 +1,54 @@
+///////////////////////////////////////////////////////////
+// satAdd.sv  This design will add two 16-bit vectors   //
+// and produce a 16-bit sum.  The result is saturated  //
+// to 0x7FFF if it were to overflow + or 0x8000 if it //
+// were to overflow negative.                        //
+//////////////////////////////////////////////////////
+module satAdd(
+  input 	[15:0]	A,B,		// two 16-bit vectors to be added
+  output 	[15:0]	satSum		// 16-bit Sum
+);
+
+	/////////////////////////////////////////////////
+	// Declare any internal signals as type logic //
+	///////////////////////////////////////////////
+	logic [15:0] Sum;		// raw sum from RCA16
+	logic Cout;
+	logic S15, A15, B15;
+	logic SNot15, ANot15, BNot15;
+	logic MuxPosOut;
+	assign S15 = Sum[15];
+	assign A15 = A[15];
+	assign B15 = B[15];
+
+	logic satPos,satNeg;	// result of sat_logic that tells us to saturated
+
+	// You might need to declare a few more
+	
+	////////////////////////////////////////
+	// Instantiate RCA16 to form raw Sum //
+	//////////////////////////////////////
+	// Instantiate RCA16 here...use connect by name: i.e.  .A(A) 
+	RCA16 iRCA16(.A(A),.B(B),.Cin(0),.S(Sum),.Cout(Cout));
+
+    ///////////////////////////////////////////////
+	// Infer sat_logic using structural verilog //
+	// (instantiation of primitive gates)      //
+	////////////////////////////////////////////
+	// add verilog primitives here to form satNeg, satPos 
+	not iNOT1(SNot15, S15);
+	not iNOT2(ANot15, A15);
+	not iNOT3(BNot15, B15);
+
+	and iAND1(satPos, S15, ANot15, BNot15);
+	and iAND2(satNeg, SNot15, A15, B15);
+
+	////////////////////////////////////////////////////////////////
+	// Infer saturation muxes using dataflow (assign statements) //
+	// assign MuxOut = sel ? D1 : D0;   // a simple 2:1 mux     //
+	/////////////////////////////////////////////////////////////
+    // Use data flow here to infer muxes that pipe in saturation values
+	assign MuxPosOut = satPos? 16'h7FFF : Sum ;
+	assign satSum = satNeg? 16'h8000 : MuxPosOut ;
+	
+endmodule
